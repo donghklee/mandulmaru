@@ -1,0 +1,176 @@
+#include <SimpleTimer.h>
+#include <Adafruit_NeoPixel.h>
+#define PIN 6  // DI 핀번호
+#define N_LEDS 8 // 네오픽셀 LED 갯수
+
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_LEDS, PIN, NEO_GRB + NEO_KHZ800);   
+//NEO_GRB <= 네오픽셀 타입 ,  NEO_KHZ800 <= 클럭 주파수
+
+SimpleTimer timer; //라이브러리를 사용하기 위한 변수 선언
+
+int ThermistorPin = 0;  
+int Vo;  
+float R1 = 10000;  
+float logR2, R2, T, Tc, Tf;  
+float c1 = 1.009249522e-03, c2 = 2.378405444e-04, c3 = 2.019202697e-07;  //온도측정변수들
+
+int LED=6;  //네오픽셀 핀
+int dark=10;
+int bright=255;
+int ledState=dark;
+
+int timeButton=12;  //타이머 버튼 
+const int buttonPin = 13;    // 버튼 입력핀
+const int RelayPin = 8;     // 릴레이 연결핀
+
+int RelayState = LOW;        // 릴레이 출력 핀의 현재상태
+int buttonState;             // 버튼 입력 변수
+int lastButtonState = LOW;   // 최종 버튼 상태 저장을 위한 변수
+
+int timeState=LOW;//버튼이 눌렸는지 확인하는 전역변수
+boolean booked=false; //시간이 예약됐는지 확인 변수
+
+long lastDebounceTime = 0;  // 디바운스 타임 저장 변수
+long debounceDelay = 50;    // 디바운스 타임
+int reading;//열버튼값
+
+void setup() {
+Serial.begin(9600);
+  pinMode(timeButton,INPUT);
+  pinMode(buttonPin, INPUT);
+  pinMode(RelayPin, OUTPUT);
+  digitalWrite(RelayPin,RelayState);
+ strip.setBrightness(ledState);   // 네오픽셀 밝기 0~255
+ strip.begin();  // 네오픽셀 시작
+
+}
+
+void loop() {
+ setColor(strip.Color(230,100,0)); //색변경
+ 
+ relay();
+ setTimer();
+ temperature();
+ 
+ if(RelayState==HIGH){
+  if(Tc>120.01){
+  turnOff();
+  }
+  else{
+    turnOn();
+  }
+  }
+
+  
+ 
+}
+
+void relay(){
+   reading = digitalRead(buttonPin);  // 버튼 입력
+
+  // 버튼입력 값이 이전값과 다르면 현재 시간을 저장
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
+  }
+
+  // 현재 시간과 저장시간이 디바운스 타임보다 크고 버튼 상태와 현재 버튼 상태가 다르면
+  // 버튼 상태를 현재 버튼 값으로 저장하고
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    if (reading != buttonState) {
+      buttonState = reading;
+      // 버튼 상태값이 HIGH 이면 RelayState 값을 토글한다.
+      if (buttonState == HIGH) {
+           if(ledState==dark){
+            ledState=bright;
+               for(int i=dark; i<=ledState; i++){
+                setColor(strip.Color(230,100,0));
+             strip.setBrightness(i);
+             strip.show(); 
+             delay(5);
+          }
+           }
+           else if(ledState==bright){
+            ledState=dark;
+              for(int i=bright; i>=ledState; i--){
+            setColor(strip.Color(230,100,0));
+            strip.setBrightness(i);
+            strip.show(); 
+             delay(5);
+          }
+           }
+        RelayState = !RelayState; 
+        digitalWrite(RelayPin, RelayState);
+      }
+    }
+  }
+  lastButtonState = reading;
+  }
+
+static  void setTimer(){
+    int state=digitalRead(timeButton); //버튼값
+    
+if(timeState==LOW&&state==HIGH){ //버튼이 눌렸으면 
+  if(booked==false){ //예약이 안됐다면
+    booked=true;//예약하고 
+   timer.setTimeout(5000,turnToDark); //5초후 함수실행
+   timer.setTimeout(5000,turnOff);
+   timer.setTimeout(5000,initialization); //타이머 실행시 열 버튼값 초기화
+     }   
+  }
+timeState=state;
+timer.run(); //타이머 실행
+booked=false;//예약초기화
+    }
+
+void initialization(){
+   RelayState= LOW;
+   ledState=dark;
+  }
+
+static void  setColor(uint32_t c) {
+ strip.setPixelColor(0, c);
+ strip.setPixelColor(1, c);
+ strip.setPixelColor(2, c);
+ strip.setPixelColor(3, c);
+ strip.setPixelColor(4, c);
+ strip.setPixelColor(5, c);
+ strip.setPixelColor(6, c);
+ strip.setPixelColor(7, c);
+  strip.show();
+  
+} 
+
+static void brightness(int c){
+ strip.setBrightness(c);
+}
+
+void turnToDark(){
+  for(int i=bright; i>=dark; i--){
+            setColor(strip.Color(230,100,0));
+            strip.setBrightness(i);
+            strip.show(); 
+             delay(5);
+          }
+   //  Serial.println("light");
+  }
+
+void turnOff(){
+  digitalWrite(RelayPin, LOW);
+  } 
+
+void turnOn(){
+  digitalWrite(RelayPin, HIGH);
+  } 
+
+ void temperature(){
+  Vo = analogRead(ThermistorPin);  
+  R2 = R1 * (1023.0 / (float)Vo - 1.0);  
+  logR2 = log(R2);  
+  T = (1.0 / (c1 + c2*logR2 + c3*logR2*logR2*logR2));  
+  Tc = T - 273.15;  
+  Tf = (Tc * 9.0)/ 5.0 + 32.0;   
+  
+ // Serial.print("Temperature: ");   
+  Serial.print(Tc);  
+  Serial.println(" C");
+  }
