@@ -1,0 +1,33 @@
+#include <SoftwareSerial.h>
+#include <Stepper.h>
+
+const int stepsPerRevolution = 64; 
+Stepper myStepper(stepsPerRevolution, 11,9,10,8); 
+
+
+String myString="";
+int pot = A0;
+int val;
+
+
+void setup() {
+  Serial.begin(9600);
+  myStepper.setSpeed(300);
+  pinMode(5,INPUT);
+}
+
+void loop() {
+   if(analogRead(5)=="1"){
+      for(int k=0;k<32; k++) {  // 64 * 32 = 2048 한바퀴
+        myStepper.step(stepsPerRevolution);
+       } 
+    }
+   else if(analogRead(5)=="3"){
+      for(int k=0;k<32; k++) {  // 64 * 32 = 2048 한바퀴
+        myStepper.step(-stepsPerRevolution);
+      }
+    }
+  else if(analogRead(5)=="2"){ 
+    myStepper.step(0);
+       }
+   }
