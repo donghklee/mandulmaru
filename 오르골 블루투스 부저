@@ -1,0 +1,94 @@
+#include <SoftwareSerial.h>
+
+
+
+SoftwareSerial BTSerial(2, 3);
+
+int speakerPin = 6;
+String myString = "";
+int tempo = 300;
+int pot = A0;
+int val;
+
+//Jingle Bells
+int length = 26;
+char notes1[] = "eeeeeeegcde fffffeeeeddedg";
+int beats1[] = { 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2};
+
+////Hark the Herald
+char notes2[] = "cffefaagCCCvagacffefaagCffeedcCCCfvaagCCCfvaagDDDCvavgavCffgaDDDCvavgavCffgf ";
+int beats2[] = {2, 2, 3, 1, 2, 2, 2, 2, 2, 2, 3, 1, 2, 2, 4, 2, 2, 3, 1, 2, 2, 2, 2, 2, 2, 3};
+
+void playTone(int tone, int duration) {
+  for (long i = 0; i < duration * 1000L; i += tone * 2) {
+    digitalWrite(speakerPin, HIGH);
+    delayMicroseconds(tone);
+    digitalWrite(speakerPin, LOW);
+    delayMicroseconds(tone);
+  }
+}
+
+void playNote(char note, int duration) {
+
+  char names[] = { 'c', 'd', 'e', 'f', 's', 'g', 'a', 'v', 'b', 'C', 'D', 'E' };
+  int tones[] = { 1915, 1700, 1519, 1432, 1352, 1275, 1136, 1073, 1014, 956, 852, 758 };
+
+  // play the tone corresponding to the note name
+  for (int i = 0; i < 8; i++) {
+    if (names[i] == note) {
+      playTone(tones[i], duration);
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  BTSerial.begin(9600);
+  pinMode(speakerPin, OUTPUT);
+  pinMode(5,OUTPUT);
+}
+
+void loop() {
+  while (BTSerial.available()) //mySerial 값이 있으면
+  {
+    char myChar = (char)BTSerial.read();  //mySerial int형식의 값을 char형식으로 변환
+    myString += myChar; //수신되는 문자열을 myString에 모두 붙임 (1바이트씩 전송되는 것을 모두 붙임)
+    delay(5);           //수신 문자열 끊김 방지
+  }
+
+  if (!myString.equals("")) //myString 값이 있다면
+  {
+    Serial.println("input value: " + myString); //시리얼모니터에 myString값 출력
+    if (myString == "jingle") //myString 값이 'j' 이라면
+    {analogWrite(5,"a");
+      for (int i = 0; i < length; i++) {
+        if (notes1[i] == ' ') {
+          delay(beats1[i] * tempo); // rest
+        }
+        else {
+          playNote(notes1[i], beats1[i] * tempo);
+        }// pause between notes
+        delay(tempo / 2);
+      }
+     analogWrite(5,"2");
+    }
+    else if (myString == "hark") //myString 값이 'h' 이라면
+    {analogWrite(5,"3");
+      for (int i = 0; i < length; i++) {
+        if (notes2[i] == ' ') {
+          delay(beats2[i] * tempo); // rest
+        }
+        else {
+          playNote(notes2[i], beats2[i] * tempo);
+        }// pause between notes
+        delay(tempo / 2);
+      }
+      analogWrite(5,"2");
+    }
+    else {
+      digitalWrite(5,"2");
+    }
+    myString = ""; //myString 변수값 초기화
+  }
+  Serial.println(analogRead(5));
+}
