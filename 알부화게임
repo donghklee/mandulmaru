@@ -1,0 +1,234 @@
+//핀 번호들
+
+int button = 2;
+int speaker = 3;
+int motor[3] = {4,7,8};
+int dot1 = 10;
+int dot2 = 11;
+int dot3 = 12;
+int dht = 13;
+//int lcd1 = A4;
+//int lcd2 = A5; 
+
+ 
+//speaker 헤더
+
+#include "pitches.h"
+
+ 
+//lcd 헤더
+//lcd 라이브러리 : liquidCrystal I2C frank de brabander
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27,20,4);
+
+
+
+//서보모터 헤더
+
+#include <Servo.h>
+Servo motors[3];
+
+ 
+//도트매트릭스 헤더
+//도트매트릭스 라이브러리 : LedControl by eberhard Fahle
+#include "LedControl.h"
+LedControl lc = LedControl(dot3,dot2,dot1,3);
+
+
+//dht 헤더
+//dht 라이브러리 : //simpledht
+#include <SimpleDHT.h>
+SimpleDHT11 dht11(dht);
+
+
+//사용 전역 변수
+int ispressed;
+int timer;
+int gamestart=0;
+int gamefinished=0;
+int delaytime = 1000;
+byte humidity = 0;
+byte temperature = 0;
+int value;
+int score = 0;
+int angle;
+int hatched = 0;
+byte chick[] = {B00110000,B01111110,B11111010,B01001111,B01001111,B11111010,B01111110,B00110000};
+byte chick2[] = {B00011100,B00100010,B01010010,B00100010,B11010101,B10101011,B01000010,B00111100};//이모티콘 배열 병아리
+byte success[] = {B00001100,B00011110,B00111110,B01111100,B01111100,B00111110,B00011110,B00001100};
+byte failure[] = {B11110011,B11100001,B11000001,B10000011,B10000011,B11000001,B11100001,B11110011};
+byte chicken[] = {B00001100,B01111110,B11001010,B01001111,B01001111,B11001010,B01111110,B00001100};
+byte test[3][8] = {
+    {B00111100,B01000010,B10000001,B10000001,B10000001,B10000001,B01000010,B00111100},
+    {B00011100,B00100010,B01010010,B00100010,B11010101,B10101011,B01000010,B00111100},
+    {B00111100,B01000010,B00111100,B00000000,B00011000,B00100100,B01000010,B01000010}
+    };
+
+ 
+int err;
+int melody[] = { NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4};
+int durations[] =  { 4, 8, 8, 4, 4, 4, 4, 4};
+void setup() 
+{
+  Serial.begin(9600);
+  pinMode(button,INPUT);
+  lcd.init();
+  lcd.backlight();
+  for(int i=0;i<3;i++){
+    motors[i].attach(motor[i]);
+  }
+  for(int n=0; n<3; n++){
+   lc.shutdown(n,false); 
+   lc.setIntensity(n,6); 
+   lc.clearDisplay(n); 
+  }
+  //게임 준비
+  lcd.setCursor(0,0);
+  lcd.print("Hatch Gme");
+ 
+
+  lcd.setCursor(0,1);
+  lcd.print("PressStartButton");
+  score = 0;
+  hatched = 0;
+  gamefinished=0;
+  for(int i=0;i<3;i++){
+      motors[i].write(0);
+    }
+   for(int i=0;i<3;i++){
+      for(int j=0;j<8;j++){
+        lc.setRow(i,j,B00000000);
+      }
+    }
+
+
+ 
+
+//test
+//for(int i=0;i<3;i++){
+//  for(int j=0;j<8;j++){
+//    lc.setRow(i,j,test[i][j]);
+//  }
+//}
+
+ 
+
+ 
+
+}
+void loop() 
+{   
+  //버튼이 눌리면 변수값이 바뀌며 게임이 시작
+  ispressed = digitalRead(button);
+  if(ispressed == 1){
+    gamestart = 1;
+    timer = 30;
+    lcd.clear();
+  }
+
+ 
+
+  
+  //게임이 진행되는 동안
+  while((gamestart==1)&&(timer>0)){
+    err = dht11.read(&temperature,&humidity,NULL);
+    int value = (int)temperature;
+    score = max((int)temperature,score);
+    lcd.setCursor(0,0);
+    lcd.print(timer);
+    lcd.setCursor(0,1);
+    lcd.print("score : ");
+    lcd.print(score);
+
+    
+    //여기에 부저로 똑딱똑딱하는 효과음
+    //병아리가 움직이게 하기??
+ 
+
+    //온도가 일정 위치에 도달하면 하나씩 알이 부화
+    if(score>=25&&score<30) hatched=1;
+    else if(score>=30&&score<35) hatched=2;
+    else if(score>=35) hatched=3;
+    else hatched=0;
+    for(int i=0;i<hatched;i++){
+      motors[i].write(150);
+      for(int j=0;j<8;j++){
+        lc.setRow(i,j,chick[j]);
+      }
+    }
+
+ 
+    //1초단위로 계속 반복
+    delay(1000);
+    lcd.clear();
+    timer--;
+
+
+  //타이머가 0이 되면 게임이 종료된다.
+  if(timer==0||score>=40) {
+    gamefinished=1;
+    break; //while 문을 벗어남
+    }
+  }
+
+
+ //게임 종료 후
+  if(gamefinished==1)
+  {  
+  //점수 표시
+  lcd.setCursor(0,0);
+  lcd.print("final score : ");
+  lcd.print(score);
+  lcd.setCursor(0,1);
+  lcd.print("hatched : ");
+  lcd.print(hatched);
+  dotmatrix(hatched); 
+  for(int i=0;i<3;i++){
+    motors[i].write(150);
+  }
+    delay(10000); //다음 게임 전 준비시간
+  
+
+  //다음 게임 준비
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Hatch Game");
+  lcd.setCursor(0,1);
+  lcd.print("PressStartButton");
+  score = 0;
+  hatched = 0;
+  gamefinished=0;
+  for(int i=0;i<3;i++){
+      motors[i].write(0);
+    }
+   for(int i=0;i<3;i++){
+      for(int j=0;j<8;j++){
+        lc.setRow(i,j,B00000000);
+      }
+    }
+  }
+}
+ 
+
+void dotmatrix(int a)
+{
+  for (int i = 0; i < 8; i++)
+    {
+      int duration = 1000 / durations[i];
+      tone(speaker, melody[i], duration);
+      int interval = duration * 1.30;
+      delay(interval);
+      noTone(speaker);
+    }
+ for(int i=0;i<a;i++){
+  for(int j=0;j<8;j++){
+    lc.setRow(i,j,success[j]);
+  }
+ }
+ for(int i=a;i<3;i++){
+  for(int j=0;j<8;j++){
+    lc.setRow(i,j,failure[j]);
+  }
+ }
+}
